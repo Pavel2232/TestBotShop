@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  admin_panel:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: psql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+          condition: service_healthy
+    container_name: admin_panel
+    volumes:
+      - ./bot/:/bot
+      - ./TestBotShop/:/core
+    ports:
+      - '8000:8000'
+  bot:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: psql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis_db:${REDIS_PORT}/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    container_name: aiogram_bot
+    command: ['python', 'manage.py', 'runbot']
+    volumes:
+      - ./bot/:/bot
+      - ./TestBotShop/:/TestBotShop
+      - ./critical_errors.txt:/critical_errors.txt
+  redis_db:
+    image: redis:latest
+    restart: always
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
+    environment:
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DATABASES=${REDIS_DATABASES}
+    volumes:
+      - test_bot_shop_redis_data:/data
+    container_name: 'redis_TestShopBot_bot'
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: always
+    ports:
+    - '5432:5432'
+    volumes:
+      - bot_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+    container_name: 'postgres_data_test_bot'
+
+
+
+
+volumes:
+  test_bot_shop_redis_data:
+  bot_test_data:
